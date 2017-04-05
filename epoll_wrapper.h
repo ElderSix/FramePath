@@ -1,38 +1,29 @@
+#ifndef _EPOLL_WRAPPER_H_
+#define _EPOLL_WRAPPER_H_
+
+#include "poller.h"
+
 #include <sys/epoll.h>
+#include <string>
 #include <map>
 
 enum event_type{
     EV_READ,
     EV_WRITE,
-    EV_READ_AND_WRITE
+    EV_READ_AND_WRITE,
+    EV_ERROR
 };
 
-struct event_handler {
-    int (*handler)(int, void *);
-    void* user_data;
-};
-
-class epoll_wrapper {
+class epoll_wrapper : public poller_wrapper {
 public:
-    epoll_wrapper():epfd(-1),nfds(0) {};
-    ~epoll_wrapper() {};
-    int create(int n) {
-        if(n <= 0) {
-            return -1;
-        }
-        if(epfd > 0) {
-            return nfds;
-        }
-        epfd = epoll_create(n);
-        if(epfd <= 0) {
-            return -1;
-        }
-        nfds = n;
-        return nfds;
+    epoll_wrapper():epfd(-1),nfds(0),name("epoll") {}
+    ~epoll_wrapper() {
+        //todo: release fd
     }
-    int add_poller(int fd, struct event_handler* ev_handler, int ev_type);
+    int create(int n);
+    int add_poller(int fd, event_entry* ev_entry, int ev_type);
+    int mod_poller(int fd, event_entry* ev_entry, int ev_type);
     int del_poller(int);
-    int mod_poller(int fd, struct event_handler* ev_handler, int ev_type);
     //caller release events
     int process_events(int time_wait);
 private:
@@ -46,22 +37,32 @@ private:
             case EV_WRITE:
                 ev->events = EPOLLOUT;
                 break;
-            case EV_READ_AND_WRITE:
-                ev->events = EPOLLIN|EPOLLOUT;
-                break;
+            case EV_ERROR:
+                ev->events = EPOLLERR|EPOLLHUP;
             default:
                 delete ev;
-                //注意，NULL不是关键字，nullptr则在C++11成为关键字
-                //iostream里定义了NULL，所以不包含iostream的话用NULL会编译失败
                 ev = nullptr;
         }
         return ev;
     }
+    bool is_fd_exist(int fd) {
+        return this->ev_entries.find(fd) != this->ev_entries.end();
+    }
+    event_entry* get_entry_by_fd(int fd) {
+        auto iter = this->ev_entries.find(fd);
+        if((iter != this->ev_entries.end())
+            &&(iter->second->rev_handler)) {
+            return iter->second;
+        }
+        return nullptr;
+    }
     void err_ev_process(int fd);
     void read_ev_process(int fd);
-    void write_ev_handler(int fd);
+    void write_ev_process(int fd);
     int epfd;
     int nfds;
-    std::map<int, struct event_handler*> read_ev_handlers;
-    std::map<int, struct event_handler*> write_ev_handlers;
+    std::string name;
+    std::map<int, event_entry*> ev_entries;
 };
+
+#endif  
