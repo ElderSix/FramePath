@@ -84,14 +84,21 @@ int epoll_wrapper::process_events(int time_wait) {
     for(int i = 0; i < n_events; i++) {
         fd = events[i].data.fd;
         event_type = events[i].events;
+        if(event_type & EPOLLRDHUP) {
+            cout<<"Client closed connection"<<endl;
+            continue;
+        }
         if(event_type & (EPOLLERR|EPOLLHUP)) {
             //todo: what event will happen if client Ctrl-C?
+            cout<<"Connection poll error, fd: "<<fd<<endl;
             this->err_ev_process(fd);
-            ret = fd;
-        }else if(event_type & EPOLLIN) {
-            this->read_ev_process(fd);
-        }else if(event_type & EPOLLOUT) {
-            this->write_ev_process(fd);
+        }else {
+            if(event_type & EPOLLIN) {
+                this->read_ev_process(fd);
+            }
+            if(event_type & EPOLLOUT) {
+                this->write_ev_process(fd);
+            }
         }
     }
     return ret;
@@ -99,23 +106,21 @@ int epoll_wrapper::process_events(int time_wait) {
 
 void epoll_wrapper::err_ev_process(int fd) {
     event_entry *e = get_entry_by_fd(fd);
-    if(e) {
+    if((e)&&(e->err_handler)) {
         e->err_handler(e->user_data);
-        //todo: return event_entry
-        this->del_poller(fd);
     }
 }
 
 void epoll_wrapper::read_ev_process(int fd) {
     event_entry *e = get_entry_by_fd(fd);
-    if(e) {
+    if((e)&&(e->rev_handler)) {
         e->rev_handler(e->user_data);
     }
 }
 
 void epoll_wrapper::write_ev_process(int fd) {
     event_entry *e = get_entry_by_fd(fd);
-    if(e) {
+    if((e)&&(e->wev_handler)) {
         e->wev_handler(e->user_data);
     }
 }

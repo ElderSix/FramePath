@@ -10,8 +10,10 @@
 enum event_type{
     EV_READ,
     EV_WRITE,
-    EV_READ_AND_WRITE,
-    EV_ERROR
+    EV_RW,
+    EV_READ_ET,
+    EV_WRITE_ET,
+    EV_RW_ET
 };
 
 class epoll_wrapper : public poller_wrapper {
@@ -32,16 +34,28 @@ private:
         ev->data.fd = fd;
         switch(ev_type) {
             case EV_READ:
-                ev->events = EPOLLIN;
+                ev->events = EPOLLIN|EPOLLERR|EPOLLHUP;
                 break;
             case EV_WRITE:
-                ev->events = EPOLLOUT;
+                ev->events = EPOLLOUT|EPOLLERR|EPOLLHUP;
                 break;
-            case EV_ERROR:
-                ev->events = EPOLLERR|EPOLLHUP;
+            case EV_RW:
+                ev->events = EPOLLIN|EPOLLOUT|EPOLLERR|EPOLLHUP;
+                break;
+            //After 2.6.17 we have EPOLLRDHUP for client closing connection
+            case EV_READ_ET:
+                ev->events = EPOLLIN|EPOLLET|EPOLLERR|EPOLLHUP|EPOLLRDHUP;
+                break;
+            case EV_WRITE_ET:
+                ev->events = EPOLLOUT|EPOLLET|EPOLLERR|EPOLLHUP|EPOLLRDHUP;
+                break;
+            case EV_RW_ET:
+                ev->events = EPOLLIN|EPOLLOUT|EPOLLET|EPOLLERR|EPOLLHUP|EPOLLRDHUP;
+                break;
             default:
                 delete ev;
                 ev = nullptr;
+                break;
         }
         return ev;
     }
@@ -50,8 +64,7 @@ private:
     }
     event_entry* get_entry_by_fd(int fd) {
         auto iter = this->ev_entries.find(fd);
-        if((iter != this->ev_entries.end())
-            &&(iter->second->rev_handler)) {
+        if(iter != this->ev_entries.end()){
             return iter->second;
         }
         return nullptr;
