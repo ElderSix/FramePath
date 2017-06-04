@@ -19,22 +19,20 @@ public:
 
     }
     virtual int create(int n);
-    virtual int add_event(int fd, int ev_type,
-                            ev_handler rh, ev_handler wh, ev_handler eh, void *data);
+    virtual int create_poller(int max_events, ev_dispatcher dispatcher);
+    virtual int add_event(int fd, int ev_type, void *data);
     virtual int del_event(int fd);
-    virtual int mod_event(int fd, int ev_type,
-                            ev_handler rh, ev_handler wh, ev_handler eh, void *data);
+    virtual int mod_event(int fd, int ev_type, void *data);
     //caller release events
     virtual int process_events(int time_wait);
 private:
-    virtual event_entry *create_event_entry(int fd, int ev_type,
-                        ev_handler rh, ev_handler wh, ev_handler eh, void *data);
-    virtual event_entry *get_event_entry_by_fd(int fd);
-    struct epoll_event* make_epoll_ev(event_entry* ee);
+    epoll_event* get_event_entry_by_fd(int fd);
+    int make_epoll_ev(epoll_event** ev, int ev_type, void *data);
     int epfd;
     int nfds;
     std::string name;
     std::map<int, epoll_event*> event_group;
+    ev_dispatcher dispatcher;
 };
 
 #endif

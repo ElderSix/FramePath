@@ -20,124 +20,108 @@ int epoll_wrapper::create(int n) {
     return this->nfds;
 }
 
-struct epoll_event* epoll_wrapper::make_epoll_ev(event_entry* ee) {
-    struct epoll_event* ev = new struct epoll_event;
-    bool is_valid_entry = false;
-    ev->data.fd = ee->event_fd;
-    ev->data.ptr = ee;
-    switch(ee->event_type) {
+int epoll_wrapper::create_poller(int max_events, ev_dispatcher dispatcher){
+    if(max_events <= 0) {
+        return -1;
+    }
+    if(this->epfd > 0) {
+        this->dispatcher = dispatcher;
+        return this->nfds;
+    }
+    this->epfd = epoll_create(max_events);
+    if(this->epfd <= 0) {
+        return -1;
+    }
+    this->dispatcher = dispatcher;
+    this->nfds = max_events;
+    return this->nfds;
+}
+
+int epoll_wrapper::make_epoll_ev(epoll_event** ev, int ev_type, void *data) {
+    if(!(*ev)) {
+        *ev = new struct epoll_event;
+    }
+    (*ev)->data.ptr = data;
+    switch(ev_type) {
         case EV_READ:
-            ev->events = EPOLLIN|EPOLLERR|EPOLLHUP;
-            is_valid_entry = ee->rev_handler;
+            (*ev)->events = EPOLLIN|EPOLLERR|EPOLLHUP;
             break;
         case EV_WRITE:
-            ev->events = EPOLLOUT|EPOLLERR|EPOLLHUP;
-            is_valid_entry = ee->wev_handler;
+            (*ev)->events = EPOLLOUT|EPOLLERR|EPOLLHUP;
             break;
         case EV_RW:
-            ev->events = EPOLLIN|EPOLLOUT|EPOLLERR|EPOLLHUP;
-            is_valid_entry = (ee->rev_handler) && (ee->wev_handler);
+            (*ev)->events = EPOLLIN|EPOLLOUT|EPOLLERR|EPOLLHUP;
             break;
         //After 2.6.17 we have EPOLLRDHUP for client closing connection
         case EV_READ_ET:
-            ev->events = EPOLLIN|EPOLLET|EPOLLERR|EPOLLHUP|EPOLLRDHUP;
-            is_valid_entry = ee->rev_handler;
+            (*ev)->events = EPOLLIN|EPOLLET|EPOLLERR|EPOLLHUP|EPOLLRDHUP;
             break;
         case EV_WRITE_ET:
-            ev->events = EPOLLOUT|EPOLLET|EPOLLERR|EPOLLHUP|EPOLLRDHUP;
-            is_valid_entry = ee->wev_handler;
+            (*ev)->events = EPOLLOUT|EPOLLET|EPOLLERR|EPOLLHUP|EPOLLRDHUP;
             break;
         case EV_RW_ET:
-            ev->events = EPOLLIN|EPOLLOUT|EPOLLET|EPOLLERR|EPOLLHUP|EPOLLRDHUP;
-            is_valid_entry = (ee->rev_handler) && (ee->wev_handler);
+            (*ev)->events = EPOLLIN|EPOLLOUT|EPOLLET|EPOLLERR|EPOLLHUP|EPOLLRDHUP;
             break;
         default:
-            break;
+            return -1;
     }
-    if(!is_valid_entry) {
-        delete ev;
-        ev = nullptr;
-    }
-    return ev;
+    return 0;
 }
 
-event_entry* epoll_wrapper::create_event_entry(int fd, int ev_type,
-                    ev_handler rh, ev_handler wh, ev_handler eh, void *data) {
-    event_entry *entry = new struct event_entry;
-    entry->event_fd = fd;
-    entry->event_type = ev_type;
-    entry->user_data = data;
-    entry->rev_handler = rh;
-    entry->wev_handler = wh;
-    entry->err_handler = eh;
-    return entry;
-}
-
-event_entry* epoll_wrapper::get_event_entry_by_fd(int fd) {
+epoll_event* epoll_wrapper::get_event_entry_by_fd(int fd) {
     if(event_group.find(fd) != event_group.end()) {
-        return (event_entry*)(event_group[fd]->data.ptr);
+        return (epoll_event*)(event_group[fd]);
     }
     return nullptr;
 }
 
-int epoll_wrapper::add_event(int fd, int ev_type,
-                        ev_handler rh, ev_handler wh, ev_handler eh, void *data) {
-    //todo:ee != nullptr
-    //todo: < nfds
+int epoll_wrapper::add_event(int fd, int ev_type, void *data) {
     if(this->epfd <= 0) {
         return -1;
     }
-    event_entry* ee = create_event_entry(fd, ev_type, rh, wh, eh, data);
-    if(!ee) {
-        return -3;
-    }
-    epoll_event* ev = make_epoll_ev(ee);
-    if(!ev) {
-        delete ee;
-        return -3;
-    }
-    int ret = epoll_ctl(epfd, EPOLL_CTL_ADD, ee->event_fd, ev);
+    //todo:event_group[fd] should be nullptr
+    epoll_event* ev = nullptr;
+    int ret = make_epoll_ev(&ev, ev_type, data);
     if(ret != 0) {
-        delete ee;
+        delete ev;
+        return -3;
+    }
+    ret = epoll_ctl(epfd, EPOLL_CTL_ADD, fd, ev);
+    if(ret != 0) {
         delete ev;
         return ret;
     }
-    event_group[ee->event_fd] = ev;
+    event_group[fd] = ev;
     return ret;
 }
 
-int epoll_wrapper::mod_event(int fd, int ev_type,
-                        ev_handler rh, ev_handler wh, ev_handler eh, void *data) {
+int epoll_wrapper::mod_event(int fd, int ev_type, void *data) {
     if(this->epfd <= 0) {
         return -1;
     }
-    event_entry *ee = get_event_entry_by_fd(fd);
-    if(!ee) {
+    epoll_event *ev = get_event_entry_by_fd(fd);
+    if(!ev) {
         return -5;
     }
-    ee->event_type = ev_type;
-    ee->user_data = data;
-    ee->rev_handler = rh;
-    ee->wev_handler = wh;
-    ee->err_handler = eh;
+    int ret = make_epoll_ev(&ev, ev_type, data);
+    if(ret != 0) {
+        return -3;
+    }
 
-    int ret = epoll_ctl(epfd, EPOLL_CTL_MOD, ee->event_fd, event_group[fd]);
-    return ret;
+    return epoll_ctl(epfd, EPOLL_CTL_MOD, fd, event_group[fd]);
 }
 
 int epoll_wrapper::del_event(int fd) {
     if(this->epfd <= 0) {
         return -1;
     }
-    event_entry *ee = get_event_entry_by_fd(fd);
-    if(!ee) {
+    epoll_event *ev = get_event_entry_by_fd(fd);
+    if(!ev) {
         return 0;
     }
-    //kernel > 2.6.9
-    int ret = epoll_ctl(epfd, EPOLL_CTL_DEL, ee->event_fd, nullptr);
     event_group.erase(event_group.find(fd));
-    delete ee;
-    return ret;
+    //kernel > 2.6.9
+    return epoll_ctl(epfd, EPOLL_CTL_DEL, fd, nullptr);
 }
 
 int epoll_wrapper::process_events(int time_wait) {
@@ -145,7 +129,6 @@ int epoll_wrapper::process_events(int time_wait) {
         return -1;
     }
     int n_events, fd, event_type;
-    event_entry *ee;
     epoll_event events[this->nfds];
     n_events = epoll_wait(epfd, events, this->nfds, time_wait);
     if(n_events < 0) {
@@ -153,23 +136,20 @@ int epoll_wrapper::process_events(int time_wait) {
     }
     int ret = 0;
     for(int i = 0; i < n_events; i++) {
-        fd = events[i].data.fd;
         event_type = events[i].events;
-        ee = (event_entry *)events[i].data.ptr;
         if(event_type & EPOLLRDHUP) {
             cout<<"Client closed connection"<<endl;
-            continue;
-        }
-        if(event_type & (EPOLLERR|EPOLLHUP)) {
+            this->dispatcher(EV_HUP, events[i].data.ptr);
+        }else if(event_type & EPOLLERR) {
             //todo: what event will happen if client Ctrl-C?
             cout<<"Connection poll error, fd: "<<fd<<endl;
-            ee->err_handler(ee->user_data);
+            this->dispatcher(EV_ERR, events[i].data.ptr);
         }else {
             if(event_type & EPOLLIN) {
-                ee->rev_handler(ee->user_data);
+                this->dispatcher(EV_READ, events[i].data.ptr);
             }
             if(event_type & EPOLLOUT) {
-                ee->wev_handler(ee->user_data);
+                this->dispatcher(EV_WRITE, events[i].data.ptr);
             }
         }
     }
