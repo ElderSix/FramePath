@@ -5,33 +5,27 @@ using std::cin;
 using std::cout;
 using std::endl;
 
-int epoll_wrapper::create(int n) {
-    if(n <= 0) {
-        return -1;
+#define RETURN_ERR_IF_LE(a, b, ret) if((a) <= (b)) {return ret;}
+
+epoll_wrapper::~epoll_wrapper() {
+    for(auto ev_iter = event_group.begin(); ev_iter != event_group.end();
+        ev_iter++) {
+        delete ev_iter->second;
     }
-    if(this->epfd > 0) {
-        return this->nfds;
+    if(epfd >= 0) {
+        close(epfd);
     }
-    this->epfd = epoll_create(n);
-    if(this->epfd <= 0) {
-        return -1;
-    }
-    this->nfds = n;
-    return this->nfds;
+    cout<<"epoll_wrapper destruction: done."<<endl;
 }
 
 int epoll_wrapper::create_poller(int max_events, ev_dispatcher dispatcher){
-    if(max_events <= 0) {
-        return -1;
-    }
+    RETURN_ERR_IF_LE(max_events, 0, -1)
     if(this->epfd > 0) {
         this->dispatcher = dispatcher;
         return this->nfds;
     }
     this->epfd = epoll_create(max_events);
-    if(this->epfd <= 0) {
-        return -1;
-    }
+    RETURN_ERR_IF_LE(this->epfd, 0, -1)
     this->dispatcher = dispatcher;
     this->nfds = max_events;
     return this->nfds;
@@ -76,9 +70,7 @@ epoll_event* epoll_wrapper::get_event_entry_by_fd(int fd) {
 }
 
 int epoll_wrapper::add_event(int fd, int ev_type, void *data) {
-    if(this->epfd <= 0) {
-        return -1;
-    }
+    RETURN_ERR_IF_LE(this->epfd, 0, -1)
     //todo:event_group[fd] should be nullptr
     epoll_event* ev = nullptr;
     int ret = make_epoll_ev(&ev, ev_type, data);
@@ -96,9 +88,7 @@ int epoll_wrapper::add_event(int fd, int ev_type, void *data) {
 }
 
 int epoll_wrapper::mod_event(int fd, int ev_type, void *data) {
-    if(this->epfd <= 0) {
-        return -1;
-    }
+    RETURN_ERR_IF_LE(this->epfd, 0, -1)
     epoll_event *ev = get_event_entry_by_fd(fd);
     if(!ev) {
         return -5;
@@ -112,22 +102,19 @@ int epoll_wrapper::mod_event(int fd, int ev_type, void *data) {
 }
 
 int epoll_wrapper::del_event(int fd) {
-    if(this->epfd <= 0) {
-        return -1;
-    }
+    RETURN_ERR_IF_LE(this->epfd, 0, -1)
     epoll_event *ev = get_event_entry_by_fd(fd);
     if(!ev) {
         return 0;
     }
+    delete ev;
     event_group.erase(event_group.find(fd));
     //kernel > 2.6.9
     return epoll_ctl(epfd, EPOLL_CTL_DEL, fd, nullptr);
 }
 
 int epoll_wrapper::process_events(int time_wait) {
-    if(this->epfd <= 0) {
-        return -1;
-    }
+    RETURN_ERR_IF_LE(this->epfd, 0, -1)
     int n_events, fd, event_type;
     epoll_event events[this->nfds];
     n_events = epoll_wait(epfd, events, this->nfds, time_wait);

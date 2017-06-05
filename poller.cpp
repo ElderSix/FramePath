@@ -10,6 +10,10 @@ poller_wrapper *new_poller(int type) {
     }
 }
 
+void delete_poller(poller_wrapper *poller) {
+    delete poller;
+}
+
 int add_event_to_poller(poller_wrapper *poller, int fd, int ev_type, void *data) {
     if(!poller) {
         return -1;

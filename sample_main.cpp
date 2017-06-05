@@ -151,16 +151,12 @@ int ev_read_et_handler(void* data) {
             conn->wbuf[i] = conn->rbuf[i];
         }
         //ET mode write, write until error or EAGAIN, or all the data have been sent
-        int n_sent = send(fd, conn->wbuf, n, 0);
-        while(n_sent < n) {
-            if(n_sent == -1) {
-                if(errno != EAGAIN) {
-                    cout<<"Send error"<<endl;
-                }
-                return 0;
-            }
+        int n_sent = 0;
+        while(((n_sent = send(fd, conn->wbuf + n_sent, n, 0)) > 0) && (n > 0)) {
             n -= n_sent;
-            n_sent = send(fd, conn->wbuf + n_sent, n, 0);
+        }
+        if((n_sent == -1)&&(errno != EAGAIN)) {
+            cout<<"Send error"<<endl;
         }
         return 0;
     }
@@ -240,13 +236,13 @@ int main() {
     while(1) {
         ret = poller->process_events(5000);
         cout<<"Waiting events..."<<endl;
-        if(ret > 0) {
+        if(ret != 0) {
             break;
         }
     }
     cout<<"Quit process"<<endl;
 
     //todo: release fd
-    delete poller;
+    delete_poller(poller);
     return 0;
 }

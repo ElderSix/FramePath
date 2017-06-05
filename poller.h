@@ -23,7 +23,6 @@ typedef int (*ev_dispatcher)(int, void *);
 class poller_wrapper {
 public:
     virtual ~poller_wrapper() {}
-    virtual int create(int n) = 0;
     virtual int create_poller(int max_events, ev_dispatcher dispatcher) = 0;
     virtual int add_event(int fd, int ev_type, void *data) = 0;
     virtual int del_event(int fd) = 0;
@@ -33,6 +32,7 @@ public:
 };
 
 poller_wrapper *new_poller(int type);
+void delete_poller(poller_wrapper *poller);
 int add_event_to_poller(poller_wrapper *poller, int fd, int ev_type, void *data);
 int del_event_from_poller(poller_wrapper *poller, int fd);
 int mod_event_in_poller(poller_wrapper *poller, int fd, int ev_type, void *data);

@@ -11,14 +11,7 @@
 class epoll_wrapper : public poller_wrapper {
 public:
     epoll_wrapper():epfd(-1),nfds(0),name("epoll") {}
-    virtual ~epoll_wrapper() {
-        if(epfd >= 0) {
-            close(epfd);
-        }
-        //TODO: Release epoll_event allocated by make_ev
-
-    }
-    virtual int create(int n);
+    virtual ~epoll_wrapper();
     virtual int create_poller(int max_events, ev_dispatcher dispatcher);
     virtual int add_event(int fd, int ev_type, void *data);
     virtual int del_event(int fd);
