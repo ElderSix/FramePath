@@ -7,7 +7,7 @@
 
 #include <unistd.h>
 #include <fcntl.h>
-#include "poller.h"
+#include "poller_wrapper.hpp"
 
 using std::cin;
 using std::cout;
@@ -20,11 +20,12 @@ struct connection {
     int fd;
     bool is_listen_fd;
     poller_wrapper* poller;
-    int event_type;
+    event_type ev_type;
     char rbuf[MAX_READ_BUF_SIZE];
     char wbuf[MAX_WRITE_BUF_SIZE];
 };
 
+//-----Poll event handler start-------
 int ev_write_handler(void* data);
 int ev_read_handler(void* data);
 
@@ -32,7 +33,7 @@ int ev_write_handler(void* data) {
     connection *conn = (connection *)data;
     poller_wrapper *poller = conn->poller;
     cout<<"Unset EPOLLOUT event"<<endl;
-    mod_event_in_poller(poller, conn->fd, conn->event_type, conn);
+    mod_event_in_poller(poller, conn->fd, conn->ev_type, conn);
     return 0;
 }
 
@@ -52,8 +53,8 @@ int ev_read_handler(void* data) {
         new_conn->fd = conn_fd;
         new_conn->is_listen_fd = false;
         new_conn->poller = poller;
-        new_conn->event_type = EV_READ;
-        add_event_to_poller(poller, new_conn->fd, new_conn->event_type, new_conn);
+        new_conn->ev_type = EV_READ_LEVEL;
+        add_event_to_poller(poller, new_conn->fd, new_conn->ev_type, new_conn);
         return 0;
     }else {
         int n = recv(fd, conn->rbuf, 1024, 0);
@@ -85,13 +86,14 @@ int ev_read_handler(void* data) {
             l = send(fd, conn->wbuf, MAX_WRITE_BUF_SIZE, 0);
             cout<<"Send finished."<<endl;
             cout<<"Set EPOLLOUT event"<<endl;
-            mod_event_in_poller(poller, conn->fd, conn->event_type, conn);
+            mod_event_in_poller(poller, conn->fd, conn->ev_type, conn);
             return 0;
         }
         send(fd, conn->rbuf, n , 0);
         return 0;
     }
 }
+//-----Poll event handler end-------
 
 int ev_write_et_handler(void* data) {
     cout<<"EPOLLOUT ET event"<<endl;
@@ -113,8 +115,8 @@ int ev_read_et_handler(void* data) {
             new_conn->fd = conn_fd;
             new_conn->is_listen_fd = false;
             new_conn->poller = poller;
-            new_conn->event_type = EV_RW_ET;
-            add_event_to_poller(poller, new_conn->fd, new_conn->event_type, new_conn);
+            new_conn->ev_type = EV_RW;
+            add_event_to_poller(poller, new_conn->fd, new_conn->ev_type, new_conn);
         }
         if((conn_fd == -1)&&(errno != EAGAIN)) {
             cout<<"Accept fail: "<<errno<<endl;
@@ -135,7 +137,7 @@ int ev_read_et_handler(void* data) {
         }
 
         n = MAX_READ_BUF_SIZE - to_read;
-        conn->rbuf[n - 1] = '\0';
+        conn->rbuf[n] = '\0';
         std::string str(conn->rbuf);
         cout<<"Receive message"<<"["<<str.size()<<"]: "<<str<<endl;
         if(str.substr(0, 4).compare("quit") == 0) {
@@ -167,8 +169,8 @@ int ev_err_handler(void* data) {
     return 0;
 }
 
-int event_dispather(int event_type, void *data) {
-    switch(event_type) {
+int event_dispatcher(int ev_type, void *data) {
+    switch(ev_type) {
         case EV_READ:
             ev_read_et_handler(data);
             break;
@@ -220,7 +222,7 @@ int main() {
         cout<<"Listen error"<<endl;
         return 0;
     }
-    if(-1 == poller->create_poller(10, event_dispather)) {
+    if(-1 == poller->create_poller(10, event_dispatcher)) {
         cout<<"Create epoll fail"<<endl;
         return 0;
     }
@@ -229,8 +231,8 @@ int main() {
     new_conn->fd = fd;
     new_conn->is_listen_fd = true;
     new_conn->poller = poller;
-    new_conn->event_type = EV_READ_ET;
-    add_event_to_poller(poller, new_conn->fd, new_conn->event_type, new_conn);
+    new_conn->ev_type = EV_READ;
+    add_event_to_poller(poller, new_conn->fd, new_conn->ev_type, new_conn);
     //loop for process_event
     int ret;
     while(1) {

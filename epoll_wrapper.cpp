@@ -1,4 +1,4 @@
-#include "epoll_wrapper.h"
+#include "epoll_wrapper.hpp"
 #include <iostream>
 
 using std::cin;
@@ -31,29 +31,29 @@ int epoll_wrapper::create_poller(int max_events, ev_dispatcher dispatcher){
     return this->nfds;
 }
 
-int epoll_wrapper::make_epoll_ev(epoll_event** ev, int ev_type, void *data) {
+int epoll_wrapper::make_epoll_ev(epoll_event** ev, event_type ev_type, void *data) {
     if(!(*ev)) {
         *ev = new struct epoll_event;
     }
     (*ev)->data.ptr = data;
     switch(ev_type) {
-        case EV_READ:
+        case EV_READ_LEVEL:
             (*ev)->events = EPOLLIN|EPOLLERR|EPOLLHUP;
             break;
-        case EV_WRITE:
+        case EV_WRITE_LEVEL:
             (*ev)->events = EPOLLOUT|EPOLLERR|EPOLLHUP;
             break;
-        case EV_RW:
+        case EV_RW_LEVEL:
             (*ev)->events = EPOLLIN|EPOLLOUT|EPOLLERR|EPOLLHUP;
             break;
         //After 2.6.17 we have EPOLLRDHUP for client closing connection
-        case EV_READ_ET:
+        case EV_READ:
             (*ev)->events = EPOLLIN|EPOLLET|EPOLLERR|EPOLLHUP|EPOLLRDHUP;
             break;
-        case EV_WRITE_ET:
+        case EV_WRITE:
             (*ev)->events = EPOLLOUT|EPOLLET|EPOLLERR|EPOLLHUP|EPOLLRDHUP;
             break;
-        case EV_RW_ET:
+        case EV_RW:
             (*ev)->events = EPOLLIN|EPOLLOUT|EPOLLET|EPOLLERR|EPOLLHUP|EPOLLRDHUP;
             break;
         default:
@@ -69,7 +69,7 @@ epoll_event* epoll_wrapper::get_event_entry_by_fd(int fd) {
     return nullptr;
 }
 
-int epoll_wrapper::add_event(int fd, int ev_type, void *data) {
+int epoll_wrapper::add_event(int fd, event_type ev_type, void *data) {
     RETURN_ERR_IF_LE(this->epfd, 0, -1)
     //todo:event_group[fd] should be nullptr
     epoll_event* ev = nullptr;
@@ -87,7 +87,7 @@ int epoll_wrapper::add_event(int fd, int ev_type, void *data) {
     return ret;
 }
 
-int epoll_wrapper::mod_event(int fd, int ev_type, void *data) {
+int epoll_wrapper::mod_event(int fd, event_type ev_type, void *data) {
     RETURN_ERR_IF_LE(this->epfd, 0, -1)
     epoll_event *ev = get_event_entry_by_fd(fd);
     if(!ev) {
