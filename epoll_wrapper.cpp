@@ -4,6 +4,7 @@
 using std::cin;
 using std::cout;
 using std::endl;
+using namespace frame_path;
 
 #define RETURN_ERR_IF_LE(a, b, ret) if((a) <= (b)) {return ret;}
 
@@ -18,13 +19,13 @@ epoll_wrapper::~epoll_wrapper() {
     cout<<"epoll_wrapper destruction: done."<<endl;
 }
 
-int epoll_wrapper::create_poller(int max_events, ev_dispatcher dispatcher){
+int epoll_wrapper::create_poller(int max_events, std::function<int(int, void*)> dispatcher){
     RETURN_ERR_IF_LE(max_events, 0, -1)
     if(this->epfd > 0) {
         this->dispatcher = dispatcher;
         return this->nfds;
     }
-    this->epfd = epoll_create(max_events);
+    this->epfd = epoll_create1(EPOLL_CLOEXEC);
     RETURN_ERR_IF_LE(this->epfd, 0, -1)
     this->dispatcher = dispatcher;
     this->nfds = max_events;
@@ -122,13 +123,15 @@ int epoll_wrapper::process_events(int time_wait) {
         return -1;
     }
     int ret = 0;
+    if(!this->dispatcher) {
+        return ret;
+    }
     for(int i = 0; i < n_events; i++) {
         event_type = events[i].events;
         if(event_type & EPOLLRDHUP) {
             cout<<"Client closed connection"<<endl;
             this->dispatcher(EV_HUP, events[i].data.ptr);
         }else if(event_type & EPOLLERR) {
-            //todo: what event will happen if client Ctrl-C?
             cout<<"Connection poll error, fd: "<<fd<<endl;
             this->dispatcher(EV_ERR, events[i].data.ptr);
         }else {

@@ -8,11 +8,13 @@
 #include <string>
 #include <map>
 
+namespace frame_path {
+
 class epoll_wrapper : public poller_wrapper {
 public:
-    epoll_wrapper():epfd(-1),nfds(0),name("epoll") {}
+    epoll_wrapper():epfd(-1),nfds(0),name("epoll"),dispatcher(nullptr) {}
     virtual ~epoll_wrapper();
-    virtual int create_poller(int max_events, ev_dispatcher dispatcher);
+    virtual int create_poller(int max_events, std::function<int(int, void*)> dispatcher);
     virtual int add_event(int fd, event_type ev_type, void *data);
     virtual int del_event(int fd);
     virtual int mod_event(int fd, event_type ev_type, void *data);
@@ -25,7 +27,8 @@ private:
     int nfds;
     std::string name;
     std::map<int, epoll_event*> event_group;
-    ev_dispatcher dispatcher;
+    std::function<int(int, void*)> dispatcher;
 };
 
+}
 #endif

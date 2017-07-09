@@ -12,6 +12,7 @@
 using std::cin;
 using std::cout;
 using std::endl;
+using namespace frame_path;
 
 #define MAX_READ_BUF_SIZE 4096
 #define MAX_WRITE_BUF_SIZE 4096
@@ -25,7 +26,7 @@ struct connection {
     char wbuf[MAX_WRITE_BUF_SIZE];
 };
 
-//-----Poll event handler start-------
+//-----Level event handler start-------
 int ev_write_handler(void* data);
 int ev_read_handler(void* data);
 
@@ -93,7 +94,7 @@ int ev_read_handler(void* data) {
         return 0;
     }
 }
-//-----Poll event handler end-------
+//-----Level event handler end-------
 
 int ev_write_et_handler(void* data) {
     cout<<"EPOLLOUT ET event"<<endl;
@@ -188,7 +189,7 @@ int event_dispatcher(int ev_type, void *data) {
 
 int main() {
     //new epoll_wrapper
-    poller_wrapper *poller = new_poller(POLLER_EPOLL);
+    poller_wrapper *poller = new_poller(POLLER_EPOLL, event_dispatcher);
     if(!poller) {
         return -1;
     }
@@ -222,10 +223,7 @@ int main() {
         cout<<"Listen error"<<endl;
         return 0;
     }
-    if(-1 == poller->create_poller(10, event_dispatcher)) {
-        cout<<"Create epoll fail"<<endl;
-        return 0;
-    }
+
     //add fd and handler to epoll_wrapper
     connection* new_conn = new connection;
     new_conn->fd = fd;
