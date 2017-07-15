@@ -12,6 +12,7 @@
 
 #include <string>
 #include <map>
+#include <vector>
 
 namespace frame_path {
 
@@ -29,32 +30,35 @@ enum server_cb_type_id {
 class tcp_server : public socket_server {
 public:
     tcp_server():connected_callback([this](void *args){return -1;}),
-                data_in_callback([this](void *args){return -1;}),
-                data_out_callback([this](void *args){return -1;}),
-                error_callback([this](void *args){return -1;}),
+                data_in_callback([this](socket_server* s, int fd){return -1;}),
+                data_out_callback([this](socket_server* s, int fd){return -1;}),
+                error_callback([this](socket_server* s, void *args){return -1;}),
+                hangup_callback([this](socket_server* s, void *args){return -1;}),
                 server_ip(htonl(INADDR_ANY)),
                 server_port(-1),
                 poller(nullptr),
                 listen_fd(-1) {};
     virtual ~tcp_server();
-    virtual int set_params(std::string param_name, std::string val);
-    virtual int set_callback(std::string event_name, std::function<int (void*)> func);
+    virtual int set_params(const std::string &name, const std::string &val);
+    virtual int set_connected_cb(std::function<int (void*)> func);
+    virtual int set_data_in_cb(std::function<int (socket_server*, int)> func);
+    virtual int set_data_out_cb(std::function<int (socket_server*, int)> func);
+    virtual int set_err_cb(std::function<int (socket_server*, void*)> func);
+    virtual int set_hup_cb(std::function<int (socket_server*, void*)> func);
     virtual int run();
+    virtual int read(int fd, char *dst_buff, int size_to_read);
+    virtual int write(int fd, char *src_buff, int size_to_write);
 
 private:
     std::function<int (void*)> connected_callback;
-    std::function<int (void*)> data_in_callback;
-    std::function<int (void*)> data_out_callback;
-    std::function<int (void*)> error_callback;
+    std::function<int (socket_server* s, int)> data_in_callback;
+    std::function<int (socket_server* s, int)> data_out_callback;
+    std::function<int (socket_server* s, void*)> error_callback;
+    std::function<int (socket_server* s, void*)> hangup_callback;
     int poller_dispatcher(int ev_type, void *arg);
 
     const std::map<std::string, int> server_param_type_map = {
         {"port", SERVER_PARAM_PORT}
-    };
-    const std::map<std::string, int> server_cb_type_map = {
-        {"connected", SERVER_CB_CONNECTED},
-        {"data_in", SERVER_CB_DATA_IN},
-        {"data_out", SERVER_CB_DATA_OUT}
     };
     int get_param_id(std::string param_name) {
         int ret = -1;
@@ -65,21 +69,12 @@ private:
         }
         return ret;
     }
-    int get_cb_id(std::string event_name) {
-        int ret = -1;
-        try {
-            ret = server_cb_type_map.at(event_name);
-        }catch(std::out_of_range e) {
-
-        }
-        return ret;
-    }
 
     unsigned int server_ip;
     unsigned short server_port;
     poller_wrapper *poller;
     int listen_fd;
-    //TODO: provide dispatcher
+    std::map<int, connection *> conns;
 };
 
 }

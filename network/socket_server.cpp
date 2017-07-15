@@ -15,5 +15,5 @@ socket_server* socket_server::create_server(server_type type) {
         default:
             break;
     }
-    return nullptr;
+    return server;
 }
