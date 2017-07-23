@@ -21,12 +21,6 @@ enum server_param_type_id {
     SERVER_PARAM_INVALID
 };
 
-enum server_cb_type_id {
-    SERVER_CB_CONNECTED,
-    SERVER_CB_DATA_IN,
-    SERVER_CB_DATA_OUT,
-};
-
 class tcp_server : public socket_server {
 public:
     tcp_server():connected_callback([this](void *args){return -1;}),

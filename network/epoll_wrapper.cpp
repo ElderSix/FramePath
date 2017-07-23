@@ -132,7 +132,7 @@ int epoll_wrapper::process_events(int time_wait) {
             cout<<"Client closed connection"<<endl;
             this->dispatcher(EV_HUP, events[i].data.ptr);
         }else if(event_type & EPOLLERR) {
-            cout<<"Connection poll error, fd: "<<fd<<endl;
+            cout<<"Connection poll error"<<endl;
             this->dispatcher(EV_ERR, events[i].data.ptr);
         }else {
             if(event_type & EPOLLIN) {

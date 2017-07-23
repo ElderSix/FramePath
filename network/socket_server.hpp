@@ -10,12 +10,8 @@ socket_server的数据处理函数由protocol模块提供
 #include "poller_wrapper.hpp"
 
 #include <functional>
-#include <string>
 
 namespace frame_path {
-
-#define MAX_READ_BUF_SIZE 4096
-#define MAX_WRITE_BUF_SIZE 4096
 
 enum server_type {
     RAW_TCP_SRV,
