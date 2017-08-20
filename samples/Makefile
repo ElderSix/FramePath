@@ -14,7 +14,10 @@ AR = ar
 CPPFLAGS = -std=c++11
 INCLUDE = -I../network/
 
-all: $(BIN_DIR)/$(TARGET1) $(BIN_DIR)/$(TARGET2)
+all: dir_target $(BIN_DIR)/$(TARGET1) $(BIN_DIR)/$(TARGET2)
+
+dir_target:
+	mkdir -p $(OBJS_DIR)
 
 $(BIN_DIR)/$(TARGET1):$(OBJS_DIR)/$(TARGET1).o
 	$(CC) $^ $(LIBS) -o $@

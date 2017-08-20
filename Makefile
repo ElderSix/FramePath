@@ -1,4 +1,6 @@
 all:
+	mkdir -p ./build/libs
+	mkdir -p ./build/bin
 	make -C ./network
 	make -C ./samples
 
