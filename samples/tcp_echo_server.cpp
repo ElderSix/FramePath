@@ -1,6 +1,8 @@
 #include "socket_server.hpp"
 
 #include <iostream>
+#include <thread>
+#include <vector>
 
 using std::cin;
 using std::cout;
@@ -19,7 +21,7 @@ int data_in(socket_server* server, int fd) {
     char rbuf[64];
     int n = server->read(fd, rbuf, 64);
     cout<<"[Main app]:Receive data of "<<n<<" bytes"<<endl;
-    n = server->write(fd, rbuf, 64);
+    n = server->write(fd, rbuf, n);
     return 0;
 }
 
@@ -31,17 +33,24 @@ int data_out(socket_server* server, int fd) {
 
 int main() {
     cout<<"[Main app]:Create tcp server"<<endl;
-    socket_server *serv = socket_server::create_server(RAW_TCP_SRV);
+    socket_server *serv;
+    std::vector<socket_server *> servers;
+    int server_num = 3;
+    for(int i = 0; i < server_num; i++) {
+        serv = socket_server::create_server(RAW_TCP_SRV);
+        serv->set_params("port", "1314");
+        serv->set_connected_cb(handle_new_connection);
+        serv->set_data_in_cb(data_in);
+        servers.push_back(serv);
+    }
 
-    cout<<"[Main app]:Set server port"<<endl;
-    serv->set_params("port", "1314");
-
-    cout<<"[Main app]:Set server callback"<<endl;
-    serv->set_connected_cb(handle_new_connection);
-    serv->set_data_in_cb(data_in);
-    //serv->set_data_out_cb(data_out);
-
-    cout<<"[Main app]:Start server"<<endl;
-    serv->run();
+    cout<<"[Main app]:Start server with "<<server_num<<" thread."<<endl;
+    std::vector<std::thread> threads;
+    for(int i = 0; i < server_num; i++) {
+        threads.push_back(std::thread(std::bind(&socket_server::run, servers[i])));
+    }
+    for(int i = 0; i < server_num; i++) {
+        threads[i].join();
+    }
     return 0;
 }

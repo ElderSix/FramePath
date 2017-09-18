@@ -111,12 +111,14 @@ int tcp_client::connect(client_connection *conn_info) {
     sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(conn_info->server_port);
+    //FIXME: 检查返回值
     server_addr.sin_addr.s_addr = inet_addr(conn_info->server_addr.c_str());
 
     if((conn_info->client_addr != "")&&(conn_info->client_port != 0)) {
         sockaddr_in client_addr;
         client_addr.sin_family = AF_INET;
         client_addr.sin_port = htons(conn_info->client_port);
+        //FIXME: 检查返回值
         client_addr.sin_addr.s_addr = inet_addr(conn_info->client_addr.c_str());
         if(bind(conn_info->fd, (sockaddr *)&client_addr, sizeof(client_addr)) < 0) {
             std::cout<<"Bind local address failed"<<std::endl;

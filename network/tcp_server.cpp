@@ -53,10 +53,10 @@ int tcp_server::poller_dispatcher(int ev_type, void* data) {
     int ret = -1;
     connection *conn = (connection *)data;
     int fd = conn->fd;
-    std::cout<<"Receive event "<<ev_type<<std::endl;
+    std::cout<<"fd "<<fd<<" receive event "<<ev_type<<std::endl;
     switch(ev_type) {
         case EV_READ:
-            if(fd == listen_fd) {
+            if(conn->is_listen_fd) {
                 //Connection OK, save it to conns
                 int conn_fd;
                 while((conn_fd = accept4(fd, nullptr, nullptr, SOCK_NONBLOCK)) >= 0) {
@@ -118,6 +118,9 @@ int tcp_server::run() {
     if(0 > fcntl(listen_fd, F_SETFL, sock_opts)) {
         return -1;
     }
+    int optval = 1;
+    setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+    setsockopt(listen_fd, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
 
     sockaddr_in saddr;
     saddr.sin_family = AF_INET;
