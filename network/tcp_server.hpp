@@ -68,6 +68,12 @@ private:
     unsigned short server_port;
     poller_wrapper *poller;
     int listen_fd;
+
+    struct connection {
+        int fd;
+        bool is_listen_fd;
+        frame_path::event_type ev_type;
+    };
     std::map<int, connection *> conns;
 };
 

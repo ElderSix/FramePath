@@ -13,28 +13,22 @@ socket_server的数据处理函数由protocol模块提供
 
 namespace frame_path {
 
-enum server_type {
-    RAW_TCP_SRV,
-    RAW_UDP_SRV,
-    HTTP_SRV
-};
-
-enum server_status {
-    SRV_RUNNING,
-    SRV_STOPPED,
-    SRV_UNKNOWN
-};
-
-struct connection {
-    int fd;
-    bool is_listen_fd;
-    frame_path::event_type ev_type;
-};
-
 //父类
 //子类是tcp、udp、http、rtsp等等, 对应的protocol_parser不同，其数据处理也不同
 class socket_server {
 public:
+    enum server_type {
+        RAW_TCP_SRV,
+        RAW_UDP_SRV,
+        HTTP_SRV
+    };
+    
+    enum server_status {
+        SRV_RUNNING,
+        SRV_STOPPED,
+        SRV_UNKNOWN
+    };
+    
     virtual ~socket_server() {}
     static socket_server* create_server(server_type type);
     virtual int set_params(const std::string &name, const std::string &val) = 0;

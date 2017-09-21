@@ -18,10 +18,10 @@ int handle_new_connection(void *arg) {
 
 int data_in(socket_server* server, int fd) {
     //Read and echo data to client
-    char rbuf[64];
+    char rbuf[64] = {0};
     int n = server->read(fd, rbuf, 64);
     cout<<"[Main app]:Receive data of "<<n<<" bytes"<<endl;
-    n = server->write(fd, rbuf, n);
+    n = server->write(fd, rbuf, n + 1);
     return 0;
 }
 
@@ -37,7 +37,7 @@ int main() {
     std::vector<socket_server *> servers;
     int server_num = 3;
     for(int i = 0; i < server_num; i++) {
-        serv = socket_server::create_server(RAW_TCP_SRV);
+        serv = socket_server::create_server(socket_server::server_type::RAW_TCP_SRV);
         serv->set_params("port", "1314");
         serv->set_connected_cb(handle_new_connection);
         serv->set_data_in_cb(data_in);
